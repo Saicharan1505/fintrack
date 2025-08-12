@@ -1,0 +1,39 @@
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(32) UNIQUE NOT NULL
+);
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE user_roles (
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  role_id INT REFERENCES roles(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, role_id)
+);
+
+CREATE TABLE expenses (
+  id SERIAL PRIMARY KEY,
+  employee_id INT REFERENCES users(id),
+  title VARCHAR(200) NOT NULL,
+  amount NUMERIC(12,2) NOT NULL,
+  category VARCHAR(64) NOT NULL,
+  notes TEXT,
+  status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE audit_logs (
+  id SERIAL PRIMARY KEY,
+  actor_id INT REFERENCES users(id),
+  action VARCHAR(64) NOT NULL,
+  entity VARCHAR(64) NOT NULL,
+  entity_id INT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  details JSONB
+);

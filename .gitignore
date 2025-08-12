@@ -1,0 +1,20 @@
+# Java / Maven
+api/target/
+api/.mvn/wrapper/maven-wrapper.jar
+
+# Node
+fintrack-ui/node_modules/
+fintrack-ui/.vite/
+fintrack-ui/dist/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
