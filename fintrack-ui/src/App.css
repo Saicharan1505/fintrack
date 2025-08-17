@@ -40,3 +40,44 @@
 .read-the-docs {
   color: #888;
 }
+
+/* --- FinTrack UI helpers --- */
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 16px;
+}
+.card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px;
+}
+.card-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.muted {
+  color: #667085;
+  font-size: 13px;
+}
+.table-wrap {
+  overflow: auto;
+}
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tbl th, .tbl td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.tbl .tr {
+  text-align: right;
+}

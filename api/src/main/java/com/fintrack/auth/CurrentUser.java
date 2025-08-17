@@ -1,6 +1,11 @@
 package com.fintrack.auth;
 
-import com.fintrack.user.User;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import java.lang.annotation.*;
 
-public record CurrentUser(User user) {
+@Target({ ElementType.PARAMETER, ElementType.TYPE })
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@AuthenticationPrincipal
+public @interface CurrentUser {
 }
