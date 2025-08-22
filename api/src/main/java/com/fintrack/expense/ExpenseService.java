@@ -2,6 +2,7 @@
 package com.fintrack.expense;
 
 import com.fintrack.exception.AppExceptions.*; // domain exceptions: NotFoundException, ForbiddenException, ConflictException
+import com.fintrack.expense.dto.CreateExpenseRequest;
 import com.fintrack.expense.dto.ExpenseCreateRequest;
 import com.fintrack.expense.dto.ExpenseResponse;
 import com.fintrack.user.User;
@@ -9,6 +10,7 @@ import com.fintrack.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -28,21 +30,17 @@ public class ExpenseService {
 
     // --- NEW: overload so controllers can pass email directly ---
     @Transactional
-    public ExpenseResponse create(ExpenseCreateRequest req, String email) {
-        User creator = userRepo.findByEmail(email)
-                .orElseThrow(() -> new NotFoundException("User with email=" + email + " does not exist"));
-        return create(req, creator); // delegate to the existing method
-    }
-
-    // Existing: create with resolved User
-    @Transactional
-    public ExpenseResponse create(ExpenseCreateRequest req, User creator) {
+    public ExpenseResponse create(CreateExpenseRequest req, User creator) {
         Expense expense = new Expense();
-        expense.setTitle(req.getTitle());
-        expense.setAmount(req.getAmount());
-        expense.setCategory(req.getCategory());
-        expense.setStatus("PENDING"); // default for new
-        expense.setUser(creator); // uses your convenience setter that maps to 'employee'
+        expense.setTitle(req.title());
+        expense.setAmount(req.amount());
+        expense.setCategory(req.category());
+        expense.setStatus("PENDING");
+        expense.setUser(creator); // <-- directly using the User passed in
+
+        expense.setNotes(req.notes());
+        expense.setReceiptUrl(req.receiptUrl());
+        expense.setCreatedAt(OffsetDateTime.now());
 
         Expense saved = expenseRepo.save(expense);
 
@@ -51,16 +49,10 @@ public class ExpenseService {
                 saved.getTitle(),
                 saved.getAmount(),
                 saved.getCategory(),
-                saved.getStatus());
+                saved.getStatus(),
+                saved.getNotes(), // NEW
+                saved.getReceiptUrl());
     }
-
-    // @Transactional
-    // public Expense approveExpense(Integer expenseId, User manager) {
-    // assertManager(manager);
-    // Expense expense = getPendingExpenseOrThrow(expenseId);
-    // expense.setStatus("APPROVED");
-    // return expenseRepo.save(expense);
-    // }
 
     @Transactional
     public Expense approveExpense(Integer id, User manager) {

@@ -7,9 +7,11 @@ import {
 
 export default function ManagerQueue({ userEmail, roles }) {
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null); // {type: 'success'|'error', msg: string}
+
+  const isAllowed = roles?.includes("MANAGER") || roles?.includes("ADMIN");
 
   function showToast(type, msg) {
     setToast({ type, msg });
@@ -17,7 +19,7 @@ export default function ManagerQueue({ userEmail, roles }) {
   }
 
   async function load() {
-    if (!roles?.includes("MANAGER") && !roles?.includes("ADMIN")) {
+    if (!isAllowed) {
       setItems([]);
       setLoading(false);
       return;
@@ -25,13 +27,15 @@ export default function ManagerQueue({ userEmail, roles }) {
 
     setLoading(true);
     try {
-      const data = await fetchPendingExpenses(userEmail);
+      const data = await fetchPendingExpenses(userEmail, { roles });
       setItems(data);
     } catch (e) {
+      if (e?.code === "ERR_CANCELED") return;
       console.error(e);
       const status = e?.response?.status;
       if (status === 401 || status === 403) {
-        showToast("error", "Not authorized to view pending expenses");
+        // silently swallow — no need to show scary errors
+        setItems([]);
       } else {
         showToast("error", "Failed to load pending expenses");
       }
@@ -41,36 +45,32 @@ export default function ManagerQueue({ userEmail, roles }) {
   }
 
   useEffect(() => {
-    if (userEmail) load();
+    if (isAllowed) load();
+    else {
+      setItems([]);
+      setLoading(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail, roles]);
 
   async function onApprove(id) {
     if (busyId) return;
     setBusyId(id);
-
-    // optimistic remove
     const prev = items;
     setItems(prev.filter((x) => x.id !== id));
 
     try {
-      await approveExpense(userEmail, id);
+      await approveExpense(userEmail, id, { roles });
       showToast("success", `Expense #${id} approved`);
     } catch (e) {
       console.error(e);
       const status = e?.response?.status;
-      if (status === 409) {
-        showToast("error", `Expense #${id} was already processed. Refreshing…`);
-        await load(); // don’t rollback
-      } else if (status === 404) {
-        showToast("error", `Expense #${id} no longer exists. Refreshing…`);
-        await load(); // don’t rollback
-      } else if (status === 401 || status === 403) {
-        showToast("error", `Not authorized to approve`);
-        setItems(prev); // rollback
+      if (status === 409 || status === 404) {
+        showToast("error", `Expense #${id} already processed. Refreshing…`);
+        await load();
       } else {
+        setItems(prev);
         showToast("error", "Approve failed — restoring item");
-        setItems(prev); // rollback
       }
     } finally {
       setBusyId(null);
@@ -79,50 +79,37 @@ export default function ManagerQueue({ userEmail, roles }) {
 
   async function onReject(id) {
     if (busyId) return;
-    const ok = window.confirm(`Reject expense #${id}?`);
-    if (!ok) return;
+    if (!window.confirm(`Reject expense #${id}?`)) return;
 
     setBusyId(id);
-
-    // optimistic remove
     const prev = items;
     setItems(prev.filter((x) => x.id !== id));
 
     try {
-      await rejectExpense(userEmail, id);
+      await rejectExpense(userEmail, id, { roles });
       showToast("success", `Expense #${id} rejected`);
     } catch (e) {
       console.error(e);
       const status = e?.response?.status;
-      if (status === 409) {
-        showToast("error", `Expense #${id} was already processed. Refreshing…`);
+      if (status === 409 || status === 404) {
+        showToast("error", `Expense #${id} already processed. Refreshing…`);
         await load();
-      } else if (status === 404) {
-        showToast("error", `Expense #${id} no longer exists. Refreshing…`);
-        await load();
-      } else if (status === 401 || status === 403) {
-        showToast("error", `Not authorized to reject`);
-        setItems(prev); // rollback
       } else {
+        setItems(prev);
         showToast("error", "Reject failed — restoring item");
-        setItems(prev); // rollback
       }
     } finally {
       setBusyId(null);
     }
   }
 
-  // 🚨 Don’t render for plain employees
-  if (!roles?.includes("MANAGER") && !roles?.includes("ADMIN")) {
-    return null;
-  }
+  if (!isAllowed) return null;
 
   return (
     <div style={{ marginTop: 24 }}>
       <h2>Pending Approvals</h2>
       <button onClick={load} style={{ margin: "8px 0 16px" }}>Refresh</button>
 
-      {/* Tiny toast */}
       {toast && (
         <div
           style={{
@@ -152,12 +139,12 @@ export default function ManagerQueue({ userEmail, roles }) {
         >
           <thead>
             <tr>
-              <th style={{ textAlign: "left" }}>ID</th>
-              <th style={{ textAlign: "left" }}>Title</th>
-              <th style={{ textAlign: "left" }}>Amount</th>
-              <th style={{ textAlign: "left" }}>Category</th>
-              <th style={{ textAlign: "left" }}>Status</th>
-              <th style={{ textAlign: "left" }}>Actions</th>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Amount</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -167,20 +154,7 @@ export default function ManagerQueue({ userEmail, roles }) {
                 <td>{e.title}</td>
                 <td>{e.amount}</td>
                 <td>{e.category}</td>
-                <td>
-                  <span
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: 12,
-                      fontSize: 12,
-                      background: "#fff7e6",
-                      border: "1px solid #ffe1a8",
-                      color: "#8a5a00",
-                    }}
-                  >
-                    {e.status}
-                  </span>
-                </td>
+                <td>{e.status}</td>
                 <td>
                   <button
                     onClick={() => onApprove(e.id)}

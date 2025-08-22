@@ -1,12 +1,14 @@
 package com.fintrack;
 
 import com.fintrack.auth.DevHeaderAuthFilter;
+import com.fintrack.user.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -16,69 +18,67 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
-                // Inject dev header-based auth before anonymous auth
-                .addFilterBefore(
-                        new DevHeaderAuthFilter(),
-                        org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class)
-                .authorizeHttpRequests(auth -> auth
-                        // CORS preflight
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+        private final UserRepository users;
 
-                        // Public/lightweight endpoints (health + current-user echo)
-                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/me").authenticated()
+        public SecurityConfig(UserRepository users) {
+                this.users = users;
+        }
 
-                        // Employee flows
-                        .requestMatchers(HttpMethod.GET, "/api/expenses/mine")
-                        .hasAnyRole("EMPLOYEE", "MANAGER", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/expenses").hasRole("EMPLOYEE")
+        @Bean
+        public SecurityFilterChain api(HttpSecurity http) throws Exception {
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .cors(Customizer.withDefaults()) // <-- enable CORS support
+                                .addFilterBefore(new DevHeaderAuthFilter(users),
+                                                UsernamePasswordAuthenticationFilter.class)
+                                .authorizeHttpRequests(auth -> auth
+                                                // Allow preflight
+                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Manager/Admin flows
-                        .requestMatchers(HttpMethod.GET, "/api/expenses/pending").hasAnyRole("MANAGER", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/expenses/*/approve").hasAnyRole("MANAGER", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/expenses/*/reject").hasAnyRole("MANAGER", "ADMIN")
+                                                // open health/static
+                                                .requestMatchers("/actuator/**", "/uploads/**").permitAll()
 
-                        // Everything else requires auth
-                        .anyRequest().authenticated());
+                                                // EMPLOYEE
+                                                .requestMatchers(HttpMethod.POST, "/api/expenses").hasRole("EMPLOYEE")
+                                                .requestMatchers(HttpMethod.GET, "/api/expenses/mine")
+                                                .hasRole("EMPLOYEE")
 
-        return http.build();
-    }
+                                                // MANAGER/ADMIN
+                                                .requestMatchers(HttpMethod.GET, "/api/expenses/pending")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/expenses/*/approve")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/expenses/*/reject")
+                                                .hasAnyRole("MANAGER", "ADMIN")
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration cfg = new CorsConfiguration();
+                                                // ADMIN
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-        // Vite dev server origin(s)
-        cfg.setAllowedOrigins(List.of(
-                "http://localhost:5173"
-        // add more origins here if needed
-        ));
+                                                .anyRequest().authenticated());
 
-        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                return http.build();
+        }
 
-        // Include custom identity headers used by DevHeaderAuthFilter
-        cfg.setAllowedHeaders(List.of(
-                "Content-Type",
-                "Accept",
-                "X-Requested-With",
-                "X-User-Email",
-                "X-User-Roles",
-                "Authorization"));
+        // CORS config: allow Vite dev server to call the API with our custom headers
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration cfg = new CorsConfiguration();
+                cfg.setAllowedOrigins(List.of("http://localhost:5173"));
+                cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+                cfg.setAllowedHeaders(List.of(
+                                "Content-Type",
+                                "X-Requested-With",
+                                "X-User-Email",
+                                "X-User-Roles",
+                                "Authorization",
+                                "Accept",
+                                "Origin"));
+                // expose anything you want the browser to read; optional
+                cfg.setExposedHeaders(List.of("Location"));
+                cfg.setAllowCredentials(true);
 
-        // If you use redirection/Location header on 201 Created, etc.
-        cfg.setExposedHeaders(List.of("Location"));
-
-        // Allow cookies/credentials in dev (fine because origin is explicitly
-        // whitelisted)
-        cfg.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cfg);
-        return source;
-    }
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                source.registerCorsConfiguration("/**", cfg);
+                return source;
+        }
 }

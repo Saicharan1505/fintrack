@@ -15,12 +15,13 @@ function App() {
 
   const onSelectUser = (e) => {
     const email = e.target.value;
-    setUserEmail(email);
-    // Map emails to roles for dev:
+    // ✅ set roles first, then email — avoids one-tick 403s
     if (email === "evan.employee@demo.local") setUserRoles(["EMPLOYEE"]);
     else if (email === "alice.manager@demo.local") setUserRoles(["MANAGER"]);
     else if (email === "ada.admin@demo.local") setUserRoles(["ADMIN"]);
     else setUserRoles(["EMPLOYEE"]);
+
+    setUserEmail(email);
   };
 
   return (
@@ -53,7 +54,7 @@ function App() {
 
       {/* ADMIN: dashboard */}
       {hasRole("ADMIN") && (
-        <AdminDashboard userEmail={userEmail} enabled={true} />
+        <AdminDashboard userEmail={userEmail} roles={user.roles} enabled />
       )}
     </div>
   );

@@ -15,6 +15,17 @@ public class ExpenseCreateRequest {
     @NotBlank(message = "Category is required")
     private String category;
 
+    private String notes; // if not already present
+    private String receiptUrl; // NEW
+
+    public String getReceiptUrl() {
+        return receiptUrl;
+    }
+
+    public void setReceiptUrl(String receiptUrl) {
+        this.receiptUrl = receiptUrl;
+    }
+
     public String getTitle() {
         return title;
     }

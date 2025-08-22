@@ -24,6 +24,8 @@ public class Expense {
     private String category;
     @Column(columnDefinition = "text")
     private String notes;
+    @Column(nullable = true)
+    private String receiptUrl;
     @Column(nullable = false)
     private String status = "PENDING";
     @Column(name = "created_at", columnDefinition = "timestamptz")
@@ -116,6 +118,14 @@ public class Expense {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getReceiptUrl() {
+        return receiptUrl;
+    }
+
+    public void setReceiptUrl(String receiptUrl) {
+        this.receiptUrl = receiptUrl;
     }
 
 }
