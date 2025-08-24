@@ -1,7 +1,4 @@
-
 package com.fintrack.auth;
-
-import java.util.stream.Collectors;
 
 import com.fintrack.user.User;
 import com.fintrack.user.UserRepository;
@@ -34,27 +31,39 @@ public class DevHeaderAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Let preflight through untouched
+        // Allow preflight OPTIONS requests through
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Read email from header (dev only)
+        // Read the email header we use for dev auth
         String email = request.getHeader("X-User-Email");
 
-        if (StringUtils.hasText(email) && SecurityContextHolder.getContext().getAuthentication() == null) {
+        if (StringUtils.hasText(email) &&
+                SecurityContextHolder.getContext().getAuthentication() == null) {
+
             User user = users.findByEmail(email).orElse(null);
 
             if (user != null) {
-                // Map role names (EMPLOYEE/MANAGER/ADMIN) -> ROLE_EMPLOYEE / etc.
+                // Map DB role names (EMPLOYEE / MANAGER / ADMIN)
+                // to Spring Security roles (ROLE_EMPLOYEE / ROLE_MANAGER / ROLE_ADMIN)
                 List<GrantedAuthority> auths = user.getRoles().stream()
-                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r.getName()))
+                        .map(r -> {
+                            String springRole = "ROLE_" + r.getName().toUpperCase();
+                            return new SimpleGrantedAuthority(springRole);
+                        })
                         .collect(Collectors.toList());
 
+                // Debug log for visibility
+                System.out.println("Authenticated user=" + email + " with roles=" + auths);
+
+                // Create authentication token
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user, null, auths);
 
                 SecurityContextHolder.getContext().setAuthentication(auth);
+            } else {
+                System.out.println("No user found with email=" + email);
             }
         }
 

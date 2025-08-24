@@ -3,15 +3,18 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 const UserContext = createContext();
 
-// Defaults for DEV. Change role here to test: "EMPLOYEE" | "MANAGER" | "ADMIN"
+// Default (employee)
 let currentUserEmail = "evan.employee@demo.local";
-let currentUserRoles = ["EMPLOYEE"]; // 👈 default role
+let currentUserRoles = ["EMPLOYEE"];
 
 export function UserProvider({ children }) {
   const [userEmail, setUserEmail] = useState(currentUserEmail);
   const [userRoles, setUserRoles] = useState(currentUserRoles);
 
-  // keep module-level mirrors in sync for non-React code (e.g., axios interceptor)
+  const [expensesVersion, setExpensesVersion] = useState(0);
+  const bumpExpenses = () => setExpensesVersion((v) => v + 1);
+
+  // keep global mirrors in sync
   useEffect(() => {
     currentUserEmail = userEmail;
   }, [userEmail]);
@@ -20,8 +23,22 @@ export function UserProvider({ children }) {
     currentUserRoles = userRoles;
   }, [userRoles]);
 
+  // --- helper to change user (email + roles together) ---
+  function switchUser(email) {
+    let roles = ["EMPLOYEE"]; // fallback
+    if (email.includes("manager")) {
+      roles = ["MANAGER"];
+    } else if (email.includes("admin")) {
+      roles = ["ADMIN"];
+    }
+    setUserEmail(email);
+    setUserRoles(roles);
+  }
+
   return (
-    <UserContext.Provider value={{ userEmail, setUserEmail, userRoles, setUserRoles }}>
+    <UserContext.Provider value={{ userEmail, userRoles, setUserEmail, setUserRoles, switchUser, expensesVersion, bumpExpenses,
+
+     }}>
       {children}
     </UserContext.Provider>
   );
@@ -33,11 +50,11 @@ export function useUser() {
   return ctx;
 }
 
-// ✅ Helpers for non-component code
+// Non-React helpers
 export function getUserEmail() {
   return currentUserEmail;
 }
 
 export function getUserRoles() {
-  return currentUserRoles; // e.g., ["EMPLOYEE"] or ["MANAGER","ADMIN"]
+  return currentUserRoles;
 }

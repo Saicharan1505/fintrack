@@ -31,3 +31,7 @@ lerna-debug.log*
 # === OS-specific ===
 .DS_Store
 Thumbs.db
+
+#== Receipts uploaded by employee ==
+# Ignore uploaded receipts
+api/uploads/

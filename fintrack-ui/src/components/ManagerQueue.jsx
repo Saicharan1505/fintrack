@@ -11,7 +11,7 @@ export default function ManagerQueue({ userEmail, roles }) {
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null); // {type: 'success'|'error', msg: string}
 
-  const isAllowed = roles?.includes("MANAGER") || roles?.includes("ADMIN");
+  const isAllowed = roles?.includes("MANAGER"); // 👈 only MANAGER, not ADMIN
 
   function showToast(type, msg) {
     setToast({ type, msg });
@@ -135,7 +135,7 @@ export default function ManagerQueue({ userEmail, roles }) {
         <table
           border="1"
           cellPadding="8"
-          style={{ borderCollapse: "collapse", width: "100%", maxWidth: 900 }}
+          style={{ borderCollapse: "collapse", width: "100%", maxWidth: 1000 }}
         >
           <thead>
             <tr>
@@ -144,17 +144,31 @@ export default function ManagerQueue({ userEmail, roles }) {
               <th>Amount</th>
               <th>Category</th>
               <th>Status</th>
+              <th>Receipt</th> {/* 👈 new column */}
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map((e) => (
               <tr key={e.id}>
-                <td>#{e.id}</td>
+                <td>{e.id}</td>
                 <td>{e.title}</td>
                 <td>{e.amount}</td>
                 <td>{e.category}</td>
                 <td>{e.status}</td>
+                <td>
+                  {e.receiptUrl ? (
+                    <a 
+  href={`http://localhost:8080${e.receiptUrl}`} 
+  target="_blank" 
+  rel="noreferrer"
+>
+  View
+</a>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>
                   <button
                     onClick={() => onApprove(e.id)}

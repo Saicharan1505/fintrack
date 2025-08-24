@@ -1,21 +1,25 @@
+
+// src/components/ExpenseList.jsx
 import { useEffect, useState } from "react";
 import { fetchMyExpenses } from "../api/expenses";
 import { useUser } from "../contexts/UserContext";
 
-export default function ExpenseList() {
-  const { userEmail, getUserRoles } = useUser();
+export default function ExpenseList({ reloadTrigger }) {
+  const { userEmail, userRoles } = useUser();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const isEmployee = userRoles?.includes("EMPLOYEE");
+
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail || !isEmployee) return;
     const abort = new AbortController();
 
     async function load() {
       setLoading(true);
       try {
         const data = await fetchMyExpenses(userEmail, {
-          roles: getUserRoles?.(),
+          roles: userRoles,
           signal: abort.signal,
         });
         setItems(Array.isArray(data) ? data : []);
@@ -30,7 +34,9 @@ export default function ExpenseList() {
 
     load();
     return () => abort.abort();
-  }, [userEmail, getUserRoles]);
+  }, [userEmail, userRoles, isEmployee, reloadTrigger]); // 👈 will reload on submit
+
+  if (!isEmployee) return null;
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -96,7 +102,11 @@ export default function ExpenseList() {
                 </td>
                 <td>
                   {e.receiptUrl ? (
-                    <a href={e.receiptUrl} target="_blank" rel="noreferrer">
+                    <a
+                      href={`http://localhost:8080${e.receiptUrl}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       View
                     </a>
                   ) : (

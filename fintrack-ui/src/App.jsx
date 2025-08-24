@@ -1,3 +1,4 @@
+import { useState } from "react"; 
 import ExpenseForm from "./components/ExpenseForm";
 import ExpenseList from "./components/ExpenseList";
 import ManagerQueue from "./components/ManagerQueue";
@@ -6,8 +7,9 @@ import AdminDashboard from "./components/AdminDashboard";
 import { useUser } from "./contexts/UserContext";
 
 function App() {
-  const { userEmail, setUserEmail, setUserRoles } = useUser();
-  const user = useCurrentUser(userEmail); // refetches on change
+  const { userEmail, switchUser } = useUser();  // 👈 use switchUser
+  const [reload, setReload] = useState(0);
+  const user = useCurrentUser(userEmail);       // refetches on change
 
   if (!user) return <p>Loading user info...</p>;
 
@@ -15,13 +17,11 @@ function App() {
 
   const onSelectUser = (e) => {
     const email = e.target.value;
-    // ✅ set roles first, then email — avoids one-tick 403s
-    if (email === "evan.employee@demo.local") setUserRoles(["EMPLOYEE"]);
-    else if (email === "alice.manager@demo.local") setUserRoles(["MANAGER"]);
-    else if (email === "ada.admin@demo.local") setUserRoles(["ADMIN"]);
-    else setUserRoles(["EMPLOYEE"]);
+    switchUser(email); // 👈 handles both email + roles
+  };
 
-    setUserEmail(email);
+  const handleExpenseCreated = () => {
+    setReload((r) => r + 1); // increment → triggers ExpenseList useEffect
   };
 
   return (
@@ -39,20 +39,19 @@ function App() {
         </label>
       </div>
 
-      {/* EMPLOYEE: submit + see own expenses */}
       {hasRole("EMPLOYEE") && (
         <>
-          <ExpenseForm />
-          <ExpenseList />
+          <ExpenseForm onCreated={handleExpenseCreated} />
+          <ExpenseList reloadTrigger={reload} />
         </>
       )}
 
-      {/* MANAGER + ADMIN: approvals queue */}
-      {(hasRole("MANAGER") || hasRole("ADMIN")) && (
+      {/* MANAGER ONLY: approvals queue */}
+      {hasRole("MANAGER") && (
         <ManagerQueue userEmail={userEmail} roles={user.roles} />
       )}
 
-      {/* ADMIN: dashboard */}
+      {/* ADMIN ONLY: dashboard */}
       {hasRole("ADMIN") && (
         <AdminDashboard userEmail={userEmail} roles={user.roles} enabled />
       )}

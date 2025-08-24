@@ -28,38 +28,40 @@ public class SecurityConfig {
         public SecurityFilterChain api(HttpSecurity http) throws Exception {
                 http
                                 .csrf(csrf -> csrf.disable())
-                                .cors(Customizer.withDefaults()) // <-- enable CORS support
+                                .cors(Customizer.withDefaults())
                                 .addFilterBefore(new DevHeaderAuthFilter(users),
                                                 UsernamePasswordAuthenticationFilter.class)
                                 .authorizeHttpRequests(auth -> auth
                                                 // Allow preflight
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                                                // open health/static
+                                                // open health/static/uploads
                                                 .requestMatchers("/actuator/**", "/uploads/**").permitAll()
 
                                                 // EMPLOYEE
                                                 .requestMatchers(HttpMethod.POST, "/api/expenses").hasRole("EMPLOYEE")
                                                 .requestMatchers(HttpMethod.GET, "/api/expenses/mine")
                                                 .hasRole("EMPLOYEE")
+                                                .requestMatchers(HttpMethod.POST, "/api/expenses/*/upload-receipt")
+                                                .hasRole("EMPLOYEE")
 
-                                                // MANAGER/ADMIN
+                                                // MANAGER (ONLY managers see pending approvals)
                                                 .requestMatchers(HttpMethod.GET, "/api/expenses/pending")
-                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .hasRole("MANAGER")
                                                 .requestMatchers(HttpMethod.POST, "/api/expenses/*/approve")
-                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .hasRole("MANAGER")
                                                 .requestMatchers(HttpMethod.POST, "/api/expenses/*/reject")
-                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .hasRole("MANAGER")
 
                                                 // ADMIN
                                                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
+                                                // everything else requires auth
                                                 .anyRequest().authenticated());
 
                 return http.build();
         }
 
-        // CORS config: allow Vite dev server to call the API with our custom headers
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration cfg = new CorsConfiguration();
@@ -73,7 +75,6 @@ public class SecurityConfig {
                                 "Authorization",
                                 "Accept",
                                 "Origin"));
-                // expose anything you want the browser to read; optional
                 cfg.setExposedHeaders(List.of("Location"));
                 cfg.setAllowCredentials(true);
 

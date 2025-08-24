@@ -1,9 +1,12 @@
+
+
+// src/components/ExpenseForm.jsx
 import { useState } from "react";
 import { createExpense, uploadReceipt } from "../api/expenses";
 import { useUser } from "../contexts/UserContext";
 
-export default function ExpenseForm() {
-  const { userEmail } = useUser();               // we only need the email
+export default function ExpenseForm({ onCreated }) {
+  const { userEmail } = useUser();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("TRAVEL");
@@ -17,14 +20,14 @@ export default function ExpenseForm() {
     setSubmitting(true);
 
     try {
-      // 1) Upload file (if any) to /api/expenses/upload → returns /uploads/<file>
+      // 1) Upload file first (if any)
       let receiptUrl = null;
       if (file) {
         receiptUrl = await uploadReceipt(file);
       }
 
       // 2) Create expense with notes + receiptUrl
-      await createExpense(userEmail, {
+      const created = await createExpense(userEmail, {
         title: title.trim(),
         amount: Number(amount),
         category,
@@ -32,13 +35,17 @@ export default function ExpenseForm() {
         receiptUrl,
       });
 
-      // 3) Reset form
+      // 3) Tell parent so list updates immediately
+      if (onCreated) {
+        onCreated();
+      }
+
+      // 4) Reset form
       setTitle("");
       setAmount("");
       setCategory("TRAVEL");
       setNotes("");
       setFile(null);
-      alert("Expense submitted!");
     } catch (err) {
       console.error(err);
       alert("Failed to submit expense. Check console for details.");
